@@ -1,0 +1,96 @@
+name: Build innoextract (Windows ARM64/AArch64 + x86-64)
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-arm64:
+    runs-on: windows-11-arm
+    steps:
+      - name: Set git to use LF
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANGARM64
+          update: true
+          install: >-
+            mingw-w64-clang-aarch64-boost
+            mingw-w64-clang-aarch64-clang
+            mingw-w64-clang-aarch64-cmake
+            mingw-w64-clang-aarch64-libiconv
+            mingw-w64-clang-aarch64-ninja
+            mingw-w64-clang-aarch64-xz
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          cmake -B build -S .
+          cmake --build build
+      - name: Copy files
+        shell: msys2 {0}
+        run: |
+          cd build
+          mkdir upload
+          cp innoextract.exe upload
+          cp /clangarm64/bin/libbz2-1.dll upload
+          strip upload/innoextract.exe
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: innoextract-git-winarm64-${{github.sha}}
+          path: build/upload
+          if-no-files-found: error
+  build-x86-64:
+    runs-on: windows-latest
+    steps:
+      - name: Set git to use LF
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-boost
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-libiconv
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-xz
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          cmake -B build -S . -DUSE_STATIC_LIBS=OFF
+          cd build
+          ninja
+      - name: Copy files
+        shell: msys2 {0}
+        run: |
+          cd build
+          mkdir upload
+          cp innoextract.exe upload
+          cp /ucrt64/bin/libboost_filesystem-mt.dll upload
+          cp /ucrt64/bin/libboost_iostreams-mt.dll upload
+          cp /ucrt64/bin/libboost_program_options-mt.dll upload
+          cp /ucrt64/bin/libbz2-1.dll upload
+          cp /ucrt64/bin/libgcc_s_seh-1.dll upload
+          cp /ucrt64/bin/liblzma-5.dll upload
+          cp /ucrt64/bin/libstdc++-6.dll upload
+          cp /ucrt64/bin/libwinpthread-1.dll upload
+          cp /ucrt64/bin/libzstd.dll upload
+          cp /ucrt64/bin/zlib1.dll upload
+          strip upload/innoextract.exe
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: innoextract-git-win64-${{github.sha}}
+          path: build/upload
+          if-no-files-found: error
